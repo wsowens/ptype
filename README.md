@@ -1,5 +1,6 @@
 # ptype
-Various Python tools to assist with designing primers for bisulfite sequencing.
+Various Python tools to assist with designing primers for bisulfite sequencing. 
+This project is in its infancy, please tailor your expectations accordingly. 
 
 ## Dependencies
 These scripts also depend on [biopython](https://github.com/biopython/biopython), which can be installed like so:
