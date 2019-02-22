@@ -9,6 +9,24 @@ usage ='''primertool [accepting better names]
 get primer related information
 '''
 
+
+'''
+Basing these concentrations on this methods paper:
+https://www.ncbi.nlm.nih.gov/pubmed/25827879
+    Use 2-4 uL deaminated DNA as template in the following 50 uL PCR reaction:
+    dH2O to volume, 1x Qiagen HotStar Coral PCR buffer, 2.25 mM MgCl2,
+    0.2 mM dNTPs, 0.8 uM b1 (or a1) primer, 0.8 uM b2 (or a2) primer, 
+    and 1.25 U Qiagen HotStar Plus Taq DNA polymerase (see Note 21 ). 
+'''
+PCR_MIX = {
+    "dnac1": 800,
+    "Mg" : 2.25,
+    "dNTPs" : 1,
+    "Na" : 1.5,
+    "K" : 50,
+    "Tris": 20
+}
+
 def bisulfite_convert(seq):
     '''Get a bisulfite converted sequence based on Seq [seq] and a primer type
     This function is intended to produce strands complimentary to the p_type
@@ -33,7 +51,7 @@ def get_stats(bases, p_type):
     else:
         raise ValueError("Invalid p_type %s" % (p_type))
     stats["template"] = stats["primer"].reverse_complement()
-    stats["tm"] = MeltingTemp.Tm_NN(stats["primer"], dnac1=250, Na=100)
+    stats["tm"] = MeltingTemp.Tm_NN(stats["primer"], **PCR_MIX)
     stats["length"] = len(bases)
     return stats
 
@@ -54,13 +72,15 @@ def exhaustive_search(region, p_type, minlength=20, maxlength=30):
             cg_count = result["primer"].count("y") + result["primer"].count("r")
             if has_bad_cg(result["primer"]):
                 continue
-            if cg_count > 2:
+            if cg_count > 1:
                 continue
             if len(result["primer"]) > 28:
                 continue
+            if result["tm"] > 60.0:
+                continue
             results.append(result)
     results.sort(key=(lambda x: x["tm"]), reverse=True)
-    #sprint(list(map(lambda x: x["tm"], results)))
+    #print(list(map(lambda x: x["tm"], results)))
     return results
 
 def print_stats(stats):
