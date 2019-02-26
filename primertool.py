@@ -15,14 +15,16 @@ Basing these concentrations on this methods paper:
 https://www.ncbi.nlm.nih.gov/pubmed/25827879
     Use 2-4 uL deaminated DNA as template in the following 50 uL PCR reaction:
     dH2O to volume, 1x Qiagen HotStar Coral PCR buffer, 2.25 mM MgCl2,
-    0.2 mM dNTPs, 0.8 uM b1 (or a1) primer, 0.8 uM b2 (or a2) primer, 
-    and 1.25 U Qiagen HotStar Plus Taq DNA polymerase (see Note 21 ). 
+    0.2 mM dNTPs, 0.8 uM b1 (or a1) primer, 0.8 uM b2 (or a2) primer,
+    and 1.25 U Qiagen HotStar Plus Taq DNA polymerase (see Note 21 ).
+[Tris] and [K] are not provided by Qiagen (as far as I can see) so
+estimates were made.
 '''
 PCR_MIX = {
     "dnac1": 800,
     "Mg" : 2.25,
     "dNTPs" : 1,
-    "Na" : 1.5,
+    "Na" : 0,
     "K" : 50,
     "Tris": 20
 }
