@@ -5,7 +5,8 @@ import requests
 import json
 
 TOOL_URLS = {
-    "analyzer" : "https://www.idtdna.com/calc/analyzer/home/analyze"
+    "analyzer" : "https://www.idtdna.com/calc/analyzer/home/analyze",
+
 }
 
 def analyze(sequence, nucleotide_type, oligo_conc, na_conc, mg_conc, dNTPs_conc):
@@ -20,16 +21,26 @@ def analyze(sequence, nucleotide_type, oligo_conc, na_conc, mg_conc, dNTPs_conc)
 
     Returns a dictionary with the following values:
     '''
-    request_data = json.dumps({
+    request_data = {
         'sequence': sequence,
         'nucleotideType': nucleotide_type,
         'oligoConc': oligo_conc,
         'naConc': na_conc,
         'mgConc': mg_conc,
         'dNTPsConc': dNTPs_conc
-    })
-    result = requests.post(TOOL_URLS["analyzer"], data = request_data)
+    }
+    result = requests.post(TOOL_URLS["analyzer"], data=request_data)
     #if result has error, raise with status code
+    if not result.ok:
+        raise Exception("Request Error: [%s]" % result.status_code )
     result = json.loads(result.text)
-    #iterate over the list, delete irrelevant information
+    # check for errors identified by the analyzer
+    if "HasModelErrors" in result and result["HasModelErrors"]:
+        Exception()
+    # delete any irrelevant information
+    for k in []:
+        if k in result:
+            del result[k]
     return result
+
+print(analyze("", "DNA", 0.25, 0.5, 2.5, 1))
