@@ -12,25 +12,25 @@ TOOL_URLS = {
     "tmMismatch" : "https://www.idtdna.com/calc/analyzer/home/tmMismatch"
 }
 
-def analyze(sequence, nucleotide_type, oligo_conc, na_conc, mg_conc, dNTPs_conc):
+def analyze(sequence, nucleotide_type, dnac1, Na, Mg, dNTPs, **kwargs):
     '''Function corresponding with the main "analyze" function
     Arguments:
     sequence - string containing the sequence of interest
     nucleotide_type - string with valid nucleotide type, options are 'DNA' and 'RNA'
-    oligo_conc - concenctration of the oligo (in uM)
-    n_conc - concentration of Na+ (in uM)
-    mg_conc - concentration of Mg2+ (in uM)
-    dNTPs_conc - concentration of dNTPs (in uM)
+    dnac1 - concenctration of the oligo (in uM)
+    Na - concentration of Na+ (in uM)
+    Mg - concentration of Mg2+ (in uM)
+    dNTPs - concentration of dNTPs (in uM)
 
     Returns a dictionary with the following values:
     '''
     request_data = {
         'sequence': sequence,
         'nucleotideType': nucleotide_type,
-        'oligoConc': oligo_conc,
-        'naConc': na_conc,
-        'mgConc': mg_conc,
-        'dNTPsConc': dNTPs_conc
+        'oligoConc': dnac1,
+        'naConc': Na,
+        'mgConc': Mg,
+        'dNTPsConc': dNTPs
     }
     result = requests.post(TOOL_URLS["analyzer"], data=request_data)
     #if result has error, raise with status code
@@ -57,14 +57,14 @@ HAIRPIN_DEFAULTS = {
 }
 
 # work in progress function
-def hairpin(sequence, nucleotide_type, oligo_conc, na_conc, mg_conc, dNTPs_conc, hairpin_settings=HAIRPIN_DEFAULTS):
+def hairpin(sequence, nucleotide_type, dnac1, Na, Mg, dNTPs, hairpin_settings=HAIRPIN_DEFAULTS):
     request_data = {
         'sequence': sequence,
         'nucleotideType': nucleotide_type,
-        'oligoConc': oligo_conc,
-        'naConc': na_conc,
-        'mgConc': mg_conc,
-        'dNTPsConc': dNTPs_conc,
+        'oligoConc': dnac1,
+        'naConc': Na,
+        'mgConc': Mg,
+        'dNTPsConc': dNTPs,
         'hairpinSettings': hairpin_settings
     }
     print("sending hairpin")
@@ -83,5 +83,5 @@ def hairpin(sequence, nucleotide_type, oligo_conc, na_conc, mg_conc, dNTPs_conc,
     return result
 
 
-print(analyze("AACTAGTACTAGTAGTACA", "DNA", 0.25, 0.5, 2.5, 1))
-print(hairpin("AACTAGTACTAGTAGTACA", "DNA", 0.25, 0.5, 2.5, 1))
+#print(analyze("AACTAGTACTAGTAGTACA", "DNA", 0.25, 0.5, 2.5, 1))
+#print(hairpin("AACTAGTACTAGTAGTACA", "DNA", 0.25, 0.5, 2.5, 1))

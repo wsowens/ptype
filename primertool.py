@@ -1,13 +1,14 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import sys
+import math
 from Bio.Seq import Seq
 from Bio.SeqUtils import MeltingTemp
 from Bio import Alphabet
+from AligoOnalyzer import analyze
 
 usage ='''primertool [accepting better names]
-get primer related information
-'''
+get primer related information'''
 
 
 '''
@@ -20,13 +21,14 @@ https://www.ncbi.nlm.nih.gov/pubmed/25827879
 [Tris] and [K] are not provided by Qiagen (as far as I can see) so
 estimates were made.
 '''
+# all values in units of mM, except dnac1, which is in nM
 PCR_MIX = {
-    "dnac1": 800,
-    "Mg" : 2.25,
-    "dNTPs" : 1,
-    "Na" : 0,
-    "K" : 50,
-    "Tris": 20
+    "dnac1": 800, 
+    "Mg" : 2,  
+    "dNTPs" : 0.2,
+    "Na" : 0,     
+    "K" : 50,     
+    "Tris": 20    
 }
 
 def bisulfite_convert(seq):
@@ -38,6 +40,7 @@ def bisulfite_convert(seq):
     return Seq(bases, Alphabet.generic_dna)
 
 def get_stats(bases, p_type):
+    '''get stats for a set of bases, if designing for p_type'''
     bases = bases.upper()
     stats = {"primer type" : p_type}
     # note that we automatically orientation for type b primers
@@ -58,6 +61,24 @@ def get_stats(bases, p_type):
     return stats
 
 
+def format_stats(stats):
+    #find the max length of a value
+    max_length = 0
+    for key in stats:
+        length = len(key)
+        if length > max_length:
+            max_length = length
+    lines = []
+    for key in ["primer type", "unconverted", "converted", "template", "primer", "tm", "length"]:
+        if key not in stats:
+            continue
+        spaces = " " * (max_length - len(key) + 1)
+        lines.append("%s:" % key + spaces + "%s" % stats[key])
+    return "\n".join(lines)
+
+def analyze_stats(stats):
+    return analyze(stats["primer"], "DNA", **PCR_MIX)
+
 def has_bad_cg(primer):
     '''Check that if farthest cg/gc in a primer
     is too close too the 3' end
@@ -66,7 +87,7 @@ def has_bad_cg(primer):
             primer.rfind("y") > (len(primer) // 2))
 
 
-def exhaustive_search(region, p_type, minlength=18, maxlength=25, maxtemp=59, max_cg=0, mintemp=0):
+def exhaustive_search(region, p_type, minlength=18, maxlength=25, maxtemp=59, max_cg=0, mintemp=54):
     results = []
     for length in range(minlength, maxlength):
         for start in range(0, len(region) - length + 1):
@@ -83,12 +104,16 @@ def exhaustive_search(region, p_type, minlength=18, maxlength=25, maxtemp=59, ma
     results.sort(key=(lambda x: x["tm"]), reverse=True)
     return results
 
-
 def pair_diff(p1, p2):
     return abs(p1["tm"] - p2["tm"])
 
-def pair_sort(p1, p2):
-    return -1 * float(int(max(p1["tm"], p2["tm"]))) + pair_diff(p1, p2)
+
+def pair_sort(p1, p2, maxtemp, mintemp, maxdiff):
+    return merge_num((maxdiff - pair_diff(p1, p2) )/ maxdiff * 100, float(int(max(p1["tm"], p2["tm"]) )))
+
+
+def merge_num(num1, num2):
+    return float(int(num1)) + num2 * 10 ** (-(1+int(math.log10(num2))))
 
 def format_pair(p1, p2):
     p1 = format_stats(p1).split("\n")
@@ -103,6 +128,7 @@ def format_pair(p1, p2):
         spaces = " " * (max_length - len(line1) + 1)
         output.append(line1 + spaces + line2)
     return "\n".join(output)
+
 
 def exhaustive_pairing(first_region, second_region, strand, maxdiff=2, search_params={}):
     if strand == "a":
@@ -129,24 +155,17 @@ def exhaustive_pairing(first_region, second_region, strand, maxdiff=2, search_pa
                 break
         if pairing:
             pairings.append(pairing)
-    pairings.sort(key=(lambda x: pair_sort(*x)))
+    pairings.sort(key=(lambda x: pair_sort(x[0], x[1], 54, 59, maxdiff)), reverse=True)
     return pairings
      
-
-def format_stats(stats):
-    #find the max length of a value
-    max_length = 0
-    for key in stats:
-        length = len(key)
-        if length > max_length:
-            max_length = length
-    lines = []
-    for key in ["primer type", "unconverted", "converted", "template", "primer", "tm", "length"]:
-        if key not in stats:
-            continue
-        spaces = " " * (max_length - len(key) + 1)
-        lines.append("%s:" % key + spaces + "%s" % stats[key])
-    return "\n".join(lines)
+#def sort_pairings(pair_list, maxtemp, mintemp, maxdiff):
+#    ranked_pairs = {}
+#    maxtemp = lambda pair : max(pair[0]["Tm"], pair[1]["Tm"])
+#    for first, second in pairings:
+#        tier = pair_diff(first, second)
+#        if tier not in ranked_pairs:
+#            ranked_pairs[tier] = (first, second)
+#        elif maxtemp(ranked_pairs[tier]) < maxtemp(
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -163,7 +182,7 @@ if __name__ == "__main__":
                 print("Invalid argument: %s" % arg, file=sys.stderr)
                 continue
         p_types = p_types.split(",")
-        if mode not in ["default", "best", "top3", "all", "pair"]:
+        if mode not in ["default", "best", "top3", "all", "pair", "ao"]:
             print("Search mode not recognized: %s" % mode, file=sys.stderr)
             continue
         for p_type in p_types:
@@ -183,8 +202,10 @@ if __name__ == "__main__":
                 if len(bases) < 2:
                     print("Expected input with the following format: [ab]:(region1),(region2):pair.", file=sys.stderr)
                     continue
-                for first, second in exhaustive_pairing(bases[0], bases[1], p_type)[:10]:
+                for first, second in exhaustive_pairing(bases[0], bases[1], p_type):
                     print(format_pair(first, second))
-                    print(pair_sort(first, second))
+                    print(pair_sort(first, second, 54, 59, 2))
+            elif mode == "ao":
+                print(analyze_stats(get_stats(bases, p_type)))
             else:
                 print(format_stats((get_stats(bases, p_type))))
