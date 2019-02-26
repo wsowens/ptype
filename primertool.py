@@ -57,7 +57,6 @@ def get_stats(bases, p_type):
     stats["length"] = len(bases)
     return stats
 
-# 
 
 def has_bad_cg(primer):
     '''Check that if farthest cg/gc in a primer
@@ -66,7 +65,8 @@ def has_bad_cg(primer):
     return (primer.rfind("r") > (len(primer) // 2) or
             primer.rfind("y") > (len(primer) // 2))
 
-def exhaustive_search(region, p_type, minlength=20, maxlength=30):
+
+def exhaustive_search(region, p_type, minlength=18, maxlength=25, maxtemp=59, max_cg=0, mintemp=0):
     results = []
     for length in range(minlength, maxlength):
         for start in range(0, len(region) - length + 1):
@@ -74,30 +74,79 @@ def exhaustive_search(region, p_type, minlength=20, maxlength=30):
             cg_count = result["primer"].count("y") + result["primer"].count("r")
             if has_bad_cg(result["primer"]):
                 continue
-            if cg_count > 1:
+            if cg_count > max_cg:
                 continue
-            if len(result["primer"]) > 28:
-                continue
-            if result["tm"] > 60.0:
+            if result["tm"] > maxtemp or result["tm"] < mintemp:
                 continue
             results.append(result)
+    # sort by tm
     results.sort(key=(lambda x: x["tm"]), reverse=True)
-    #print(list(map(lambda x: x["tm"], results)))
     return results
 
-def print_stats(stats):
+
+def pair_diff(p1, p2):
+    return abs(p1["tm"] - p2["tm"])
+
+def pair_sort(p1, p2):
+    return -1 * float(int(max(p1["tm"], p2["tm"]))) + pair_diff(p1, p2)
+
+def format_pair(p1, p2):
+    p1 = format_stats(p1).split("\n")
+    p2 = format_stats(p2).split("\n")
+    max_length = 0
+    for line in p1:
+        length = len(line)
+        if length > max_length:
+            max_length = length
+    output = []
+    for line1, line2 in zip(p1,p2):
+        spaces = " " * (max_length - len(line1) + 1)
+        output.append(line1 + spaces + line2)
+    return "\n".join(output)
+
+def exhaustive_pairing(first_region, second_region, strand, maxdiff=2, search_params={}):
+    if strand == "a":
+        results1 = exhaustive_search(first_region, "a2", **search_params)
+        results2 = exhaustive_search(second_region, "a1", **search_params)
+    elif strand == "b":
+        results1 = exhaustive_search(first_region, "b1", **search_params)
+        results2 = exhaustive_search(second_region, "b2", **search_params)
+    else:
+        raise ValueError("'%s' is not recognized as a stand. (Valid inputs: 'a' or 'b'.)" % strand)
+    # find matches
+    # this can be done in at least nlogn time
+    pairings = []
+    for result in results1:
+        diff = float('inf')
+        pairing = ()
+        for other in results2:
+            temp = (result, other)
+            temp_diff = pair_diff(*temp)
+            if temp_diff < diff and temp_diff < maxdiff:
+                diff = pair_diff(*temp)
+                pairing = temp
+            if temp_diff > diff:
+                break
+        if pairing:
+            pairings.append(pairing)
+    pairings.sort(key=(lambda x: pair_sort(*x)))
+    return pairings
+     
+
+def format_stats(stats):
     #find the max length of a value
     max_length = 0
     for key in stats:
         length = len(key)
         if length > max_length:
             max_length = length
-    
+    lines = []
     for key in ["primer type", "unconverted", "converted", "template", "primer", "tm", "length"]:
         if key not in stats:
             continue
         spaces = " " * (max_length - len(key) + 1)
-        print("%s:" % key, "%s" % stats[key], sep=spaces)
+        lines.append("%s:" % key + spaces + "%s" % stats[key])
+    return "\n".join(lines)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -114,17 +163,28 @@ if __name__ == "__main__":
                 print("Invalid argument: %s" % arg, file=sys.stderr)
                 continue
         p_types = p_types.split(",")
-        if mode not in ["default", "best", "top3"]:
+        if mode not in ["default", "best", "top3", "all", "pair"]:
             print("Search mode not recognized: %s" % mode, file=sys.stderr)
             continue
         for p_type in p_types:
-            if p_type not in ["a1", "a2", "b1", "b2"]:
+            if not (mode == "pair" and p_type in ["a", "b"]) and p_type not in ["a1", "a2", "b1", "b2"]:
                 print("Primer type not recognized: %s" % p_type, file=sys.stderr)
                 continue
             if mode == "best":
-                print_stats(exhaustive_search(bases, p_type)[0])
+                print(format_stats(exhaustive_search(bases, p_type)[0]))
             elif mode == "top3":
                 for result in exhaustive_search(bases, p_type)[:3]:
-                    print_stats(result)
+                    print(format_stats(result))
+            elif mode == "all":
+                for result in exhaustive_search(bases, p_type):
+                    print(format_stats(result))
+            elif mode == "pair":
+                bases = bases.split(",")
+                if len(bases) < 2:
+                    print("Expected input with the following format: [ab]:(region1),(region2):pair.", file=sys.stderr)
+                    continue
+                for first, second in exhaustive_pairing(bases[0], bases[1], p_type)[:10]:
+                    print(format_pair(first, second))
+                    print(pair_sort(first, second))
             else:
-                print_stats(get_stats(bases, p_type))
+                print(format_stats((get_stats(bases, p_type))))
