@@ -54,13 +54,13 @@ def main():
         output = open(sys.argv[2], 'w')
     record = read_genbank(filename)
     cpgs, gpcs = get_all_gc(str(record.seq))
-    print(cpgs, gpcs)
-    print(record.features)
+    #print(cpgs, gpcs)
+    #print(record.features)
     record.features = remove_gc_features(record.features)
-    print(record.features)
+    #print(record.features)
     record.features += cpgs + gpcs
     write_genbank(record, output)
     output.close()
 
 if __name__ == "__main__":
-	main()
+ main()
