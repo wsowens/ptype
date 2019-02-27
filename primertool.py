@@ -158,14 +158,15 @@ def exhaustive_pairing(first_region, second_region, strand, maxdiff=2, search_pa
     pairings.sort(key=(lambda x: pair_sort(x[0], x[1], 54, 59, maxdiff)), reverse=True)
     return pairings
      
-#def sort_pairings(pair_list, maxtemp, mintemp, maxdiff):
-#    ranked_pairs = {}
-#    maxtemp = lambda pair : max(pair[0]["Tm"], pair[1]["Tm"])
-#    for first, second in pairings:
-#        tier = pair_diff(first, second)
-#        if tier not in ranked_pairs:
-#            ranked_pairs[tier] = (first, second)
-#        elif maxtemp(ranked_pairs[tier]) < maxtemp(
+def sort_pairings(pair_list, maxtemp, mintemp, maxdiff):
+    ranked_pairs = {}
+    maxtemp = lambda pair : max(pair[0]["tm"], pair[1]["tm"])
+    for first, second in pair_list:
+        tier = int((maxdiff - pair_diff(first, second)) / maxdiff * 10)
+        if tier not in ranked_pairs or maxtemp(ranked_pairs[tier]) < maxtemp((first, second)):
+            ranked_pairs[tier] = (first, second)
+    return ranked_pairs.items() 
+          
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -202,8 +203,9 @@ if __name__ == "__main__":
                 if len(bases) < 2:
                     print("Expected input with the following format: [ab]:(region1),(region2):pair.", file=sys.stderr)
                     continue
-                for first, second in exhaustive_pairing(bases[0], bases[1], p_type):
+                for tier, (first, second) in sort_pairings(exhaustive_pairing(bases[0], bases[1], p_type), 54, 59, 2):
                     print(format_pair(first, second))
+                    print(tier)
                     print(pair_sort(first, second, 54, 59, 2))
             elif mode == "ao":
                 print(analyze_stats(get_stats(bases, p_type)))
